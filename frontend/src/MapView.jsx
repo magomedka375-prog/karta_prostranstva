@@ -1,37 +1,53 @@
-import { MapContainer, ImageOverlay, Marker, Popup, Polyline } from 'react-leaflet';
+import { MapContainer, ImageOverlay, Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { useEffect } from 'react';
 
-const icon = (color) => L.divIcon({
-  className: 'custom-icon',
-  html: `<div style="background:${color};width:22px;height:22px;border-radius:50%;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3);"></div>`,
-  iconSize: [22, 22], iconAnchor: [11, 11]
+// Красивая иконка маркера
+const createIcon = (emoji) => L.divIcon({
+  className: 'custom-map-marker-wrapper',
+  html: `<div class="custom-map-marker">${emoji}</div>`,
+  iconSize: [32, 32], iconAnchor: [16, 16]
 });
 
-export default function MapView({ data, route, onPointClick, onRoute }) {
+// Компонент для программного перемещения карты
+function MapController({ center }) {
+  const map = useMap();
+  useEffect(() => {
+    if (center) map.flyTo(center, 1, { duration: 1.5 });
+  }, [center, map]);
+  return null;
+}
+
+export default function MapView({ data, route, onPointClick, onRoute, selectedPoint }) {
   const points = data.points || [];
   const routeCoords = (route || []).map(p => [p.y, p.x]);
 
   return (
-    <div style={{ height: 'calc(100vh - 110px)' }}>
-      <MapContainer crs={L.CRS.Simple} bounds={[[0,0],[1000,1000]]} style={{ height: '100%' }} minZoom={-1}>
-        {/* Картинка берется из папки public/frontend */}
+    <div className="map-container">
+      <MapContainer 
+        crs={L.CRS.Simple} 
+        bounds={[[0,0],[1000,1000]]} 
+        style={{ height: '100%', width: '100%' }} 
+        minZoom={-1}
+        zoomControl={false} // Скрываем стандартные кнопки зума, чтобы не портить вид
+      >
         <ImageOverlay url="/plan.svg" bounds={[[0,0],[1000,1000]]} />
         
         {points.map(p => (
-          <Marker key={p.id} position={[p.y, p.x]} icon={icon('#2563eb')}>
-            <Popup>
-              <b>{p.name}</b><br/>{p.description}<br/>
-              <button className="popup-btn" onClick={() => onPointClick(p.id)}>Открыть панораму</button>
-              <button className="popup-btn" onClick={() => {
-                const from = prompt('ID начальной точки для маршрута:');
-                if (from) onRoute(+from, p.id); // Упрощённый вызов
-              }}>Построить маршрут</button>
-            </Popup>
-          </Marker>
+          <Marker 
+            key={p.id} 
+            position={[p.y, p.x]} 
+            icon={createIcon(p.category === 'food' ? '🍔' : '📍')}
+            eventHandlers={{ click: () => onPointClick(p) }}
+          />
         ))}
+
+        {routeCoords.length > 1 && (
+          <Polyline positions={routeCoords} color="#007AFF" weight={6} opacity={0.8} dashArray="10, 10" />
+        )}
         
-        {routeCoords.length > 1 && <Polyline positions={routeCoords} color="#dc2626" weight={5} />}
+        <MapController center={selectedPoint ? [selectedPoint.y, selectedPoint.x] : null} />
       </MapContainer>
     </div>
   );
