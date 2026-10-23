@@ -1,6 +1,5 @@
 import express from 'express';
 import cors from 'cors';
-import multer from 'multer';
 import fs from 'fs';
 import { db } from './db.js';
 
@@ -8,8 +7,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// ВАЖНО: На Vercel нельзя создавать папки (fs.mkdirSync).
-// Поэтому мы оборачиваем это в try-catch. На локальном компьютере папка создастся, а на Vercel — нет (и это нормально).
+// Создание папки uploads (на Vercel просто пропустится)
 try {
   if (!fs.existsSync('uploads')) fs.mkdirSync('uploads');
   if (!fs.existsSync('uploads/plan.svg')) {
@@ -19,35 +17,47 @@ try {
   console.log("File system is read-only, skipping uploads folder creation.");
 }
 
-// Раздаем статические файлы из папки uploads (если она есть)
 app.use('/uploads', express.static('uploads'));
 
 // API: Кампусы
-app.get('/api/campuses', (req, res) => res.json(db.prepare('SELECT * FROM campus').all()));
-app.get('/api/venues', (req, res) => res.json(db.prepare('SELECT * FROM venue').all()));
-app.get('/api/floors', (req, res) => res.json(db.prepare('SELECT * FROM floor').all()));
+app.get('/api/campuses', async (req, res) => {
+  const r = await db.execute('SELECT * FROM campus');
+  res.json(r.rows);
+});
+
+app.get('/api/venues', async (req, res) => {
+  const r = await db.execute('SELECT * FROM venue');
+  res.json(r.rows);
+});
+
+app.get('/api/floors', async (req, res) => {
+  const r = await db.execute('SELECT * FROM floor');
+  res.json(r.rows);
+});
 
 // API: Точки на этаже
-app.get('/api/floor/:id/points', (req, res) => {
+app.get('/api/floor/:id/points', async (req, res) => {
   try {
-    db.prepare('INSERT INTO event_log (type, point_id) VALUES (?,?)').run('floor_view', req.params.id);
+    await db.execute({ sql: 'INSERT INTO event_log (type, point_id) VALUES (?,?)', args: ['floor_view', req.params.id] });
   } catch (e) { console.log('Stats error', e) }
-  res.json({
-    points: db.prepare('SELECT * FROM point WHERE floor_id=?').all(req.params.id),
-    edges: db.prepare('SELECT * FROM edge').all(),
-    panoramas: db.prepare('SELECT * FROM panorama').all()
-  });
+  
+  const points = await db.execute({ sql: 'SELECT * FROM point WHERE floor_id=?', args: [req.params.id] });
+  const edges = await db.execute('SELECT * FROM edge');
+  const panoramas = await db.execute('SELECT * FROM panorama');
+  res.json({ points: points.rows, edges: edges.rows, panoramas: panoramas.rows });
 });
 
 // API: Панорама
-app.get('/api/point/:id/panorama', (req, res) => {
-  const p = db.prepare('SELECT * FROM panorama WHERE point_id=?').get(req.params.id);
-  if (!p) return res.status(404).json({ error: 'no pano' });
-  const hotspots = db.prepare(`
-    SELECT h.*, p.image_url as target_url FROM hotspot h 
-    JOIN panorama p ON p.id = h.target_panorama_id WHERE h.panorama_id = ?
-  `).all(p.id);
-  res.json({ ...p, hotspots });
+app.get('/api/point/:id/panorama', async (req, res) => {
+  const p = await db.execute({ sql: 'SELECT * FROM panorama WHERE point_id=?', args: [req.params.id] });
+  if (!p.rows.length) return res.status(404).json({ error: 'no pano' });
+  const pano = p.rows[0];
+  
+  const h = await db.execute({ 
+    sql: 'SELECT h.*, p.image_url as target_url FROM hotspot h JOIN panorama p ON p.id = h.target_panorama_id WHERE h.panorama_id = ?', 
+    args: [pano.id] 
+  });
+  res.json({ ...pano, hotspots: h.rows });
 });
 
 // API: Навигация (A*)
@@ -75,20 +85,25 @@ function aStar(from, to, edges) {
   return null;
 }
 
-app.get('/api/route', (req, res) => {
-  const edges = db.prepare('SELECT * FROM edge').all();
-  const path = aStar(+req.query.from, +req.query.to, edges);
+app.get('/api/route', async (req, res) => {
+  const edgesRes = await db.execute('SELECT * FROM edge');
+  const path = aStar(+req.query.from, +req.query.to, edgesRes.rows);
   if (!path) return res.status(404).json({ error: 'no path' });
-  res.json({ path: path.map(id => db.prepare('SELECT * FROM point WHERE id=?').get(id)) });
+  
+  const points = [];
+  for (const id of path) {
+    const p = await db.execute({ sql: 'SELECT * FROM point WHERE id=?', args: [id] });
+    points.push(p.rows[0]);
+  }
+  res.json({ path: points });
 });
 
 // API: Статистика
-app.get('/api/stats', (req, res) => {
-  res.json({
-    total: db.prepare('SELECT COUNT(*) as c FROM event_log').get().c,
-    byPoint: db.prepare('SELECT p.name, COUNT(e.id) as views FROM event_log e JOIN point p ON p.id=e.point_id WHERE e.point_id IS NOT NULL GROUP BY e.point_id').all()
-  });
+app.get('/api/stats', async (req, res) => {
+  const total = await db.execute('SELECT COUNT(*) as c FROM event_log');
+  const byPoint = await db.execute('SELECT p.name, COUNT(e.id) as views FROM event_log e JOIN point p ON p.id=e.point_id WHERE e.point_id IS NOT NULL GROUP BY e.point_id');
+  res.json({ total: total.rows[0].c, byPoint: byPoint.rows });
 });
 
-// ЭКСПОРТ ДЛЯ VERCEL (вместо app.listen)
+// ЭКСПОРТ ДЛЯ VERCEL
 export default app;
