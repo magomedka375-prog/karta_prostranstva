@@ -4,7 +4,8 @@ import fs from 'fs';
 import { db } from './db.js';
 
 const app = express();
-// Разрешаем CORS для всех адресов (для хакатона это нормально)
+
+// РАЗРЕШАЕМ ЗАПРОСЫ С ЛЮБОГО АДРЕСА (исправляет ошибку CORS)
 app.use(cors());
 app.use(express.json());
 
