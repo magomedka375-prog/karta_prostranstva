@@ -7,13 +7,20 @@ import { db } from './db.js';
 const app = express();
 app.use(cors());
 app.use(express.json());
-app.use('/uploads', express.static('uploads'));
 
-if (!fs.existsSync('uploads')) fs.mkdirSync('uploads');
-// Создаём тестовый план
-if (!fs.existsSync('uploads/plan.svg')) {
-  fs.writeFileSync('uploads/plan.svg', `<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="1000"><rect width="1000" height="1000" fill="#f0f0f0"/><rect x="100" y="100" width="800" height="800" fill="none" stroke="#333" stroke-width="5"/><text x="20" y="40" font-size="30">DEMO PLAN</text></svg>`);
+// ВАЖНО: На Vercel нельзя создавать папки (fs.mkdirSync).
+// Поэтому мы оборачиваем это в try-catch. На локальном компьютере папка создастся, а на Vercel — нет (и это нормально).
+try {
+  if (!fs.existsSync('uploads')) fs.mkdirSync('uploads');
+  if (!fs.existsSync('uploads/plan.svg')) {
+    fs.writeFileSync('uploads/plan.svg', `<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="1000"><rect width="1000" height="1000" fill="#f0f0f0"/><rect x="100" y="100" width="800" height="800" fill="none" stroke="#333" stroke-width="5"/><text x="20" y="40" font-size="30">DEMO PLAN</text></svg>`);
+  }
+} catch (error) {
+  console.log("File system is read-only, skipping uploads folder creation.");
 }
+
+// Раздаем статические файлы из папки uploads (если она есть)
+app.use('/uploads', express.static('uploads'));
 
 // API: Кампусы
 app.get('/api/campuses', (req, res) => res.json(db.prepare('SELECT * FROM campus').all()));
@@ -22,7 +29,9 @@ app.get('/api/floors', (req, res) => res.json(db.prepare('SELECT * FROM floor').
 
 // API: Точки на этаже
 app.get('/api/floor/:id/points', (req, res) => {
-  db.prepare('INSERT INTO event_log (type, point_id) VALUES (?,?)').run('floor_view', req.params.id);
+  try {
+    db.prepare('INSERT INTO event_log (type, point_id) VALUES (?,?)').run('floor_view', req.params.id);
+  } catch (e) { console.log('Stats error', e) }
   res.json({
     points: db.prepare('SELECT * FROM point WHERE floor_id=?').all(req.params.id),
     edges: db.prepare('SELECT * FROM edge').all(),
@@ -81,4 +90,5 @@ app.get('/api/stats', (req, res) => {
   });
 });
 
-app.listen(3001, () => console.log('Backend running on port 3001'));
+// ЭКСПОРТ ДЛЯ VERCEL (вместо app.listen)
+export default app;
