@@ -4,7 +4,9 @@ import fs from 'fs';
 import { db } from './db.js';
 
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: 'https://kartaprostranstva-frontend.vercel.app'
+}));
 app.use(express.json());
 
 // Создание папки uploads (на Vercel просто пропустится)
