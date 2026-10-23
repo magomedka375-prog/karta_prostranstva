@@ -15,7 +15,7 @@ export default function MapView({ data, route, onPointClick, onRoute }) {
   return (
     <div style={{ height: 'calc(100vh - 110px)' }}>
       <MapContainer crs={L.CRS.Simple} bounds={[[0,0],[1000,1000]]} style={{ height: '100%' }} minZoom={-1}>
-        <ImageOverlay url="/uploads/plan.svg" bounds={[[0,0],[1000,1000]]} />
+        <ImageOverlay url="/plan.svg" bounds={[[0,0],[1000,1000]]} />
         {points.map(p => (
           <Marker key={p.id} position={[p.y, p.x]} icon={icon('#2563eb')}>
             <Popup>
