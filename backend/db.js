@@ -8,17 +8,18 @@ export const db = createClient({
 
 // Используем top-level await, чтобы Vercel дождался создания таблиц до запуска сервера
 try {
-  await db.execute(`
-    CREATE TABLE IF NOT EXISTS campus (id INTEGER PRIMARY KEY, name TEXT);
-    CREATE TABLE IF NOT EXISTS venue (id INTEGER PRIMARY KEY, campus_id INTEGER, name TEXT);
-    CREATE TABLE IF NOT EXISTS floor (id INTEGER PRIMARY KEY, venue_id INTEGER, level INTEGER, plan_image_url TEXT);
-    CREATE TABLE IF NOT EXISTS point (id INTEGER PRIMARY KEY, floor_id INTEGER, x REAL, y REAL, name TEXT, description TEXT, category TEXT, is_transition INTEGER DEFAULT 0);
-    CREATE TABLE IF NOT EXISTS panorama (id INTEGER PRIMARY KEY, point_id INTEGER, image_url TEXT);
-    CREATE TABLE IF NOT EXISTS hotspot (id INTEGER PRIMARY KEY, panorama_id INTEGER, target_panorama_id INTEGER, yaw REAL, pitch REAL);
-    CREATE TABLE IF NOT EXISTS edge (id INTEGER PRIMARY KEY, from_point INTEGER, to_point INTEGER, weight REAL DEFAULT 1);
-    CREATE TABLE IF NOT EXISTS event_log (id INTEGER PRIMARY KEY, type TEXT, point_id INTEGER, panorama_id INTEGER, created_at TEXT DEFAULT CURRENT_TIMESTAMP);
-    CREATE TABLE IF NOT EXISTS user (id INTEGER PRIMARY KEY, email TEXT UNIQUE, password_hash TEXT, role TEXT DEFAULT 'organizer');
-  `);
+  // Используем batch для выполнения нескольких CREATE TABLE за раз
+  await db.batch([
+    "CREATE TABLE IF NOT EXISTS campus (id INTEGER PRIMARY KEY, name TEXT);",
+    "CREATE TABLE IF NOT EXISTS venue (id INTEGER PRIMARY KEY, campus_id INTEGER, name TEXT);",
+    "CREATE TABLE IF NOT EXISTS floor (id INTEGER PRIMARY KEY, venue_id INTEGER, level INTEGER, plan_image_url TEXT);",
+    "CREATE TABLE IF NOT EXISTS point (id INTEGER PRIMARY KEY, floor_id INTEGER, x REAL, y REAL, name TEXT, description TEXT, category TEXT, is_transition INTEGER DEFAULT 0);",
+    "CREATE TABLE IF NOT EXISTS panorama (id INTEGER PRIMARY KEY, point_id INTEGER, image_url TEXT);",
+    "CREATE TABLE IF NOT EXISTS hotspot (id INTEGER PRIMARY KEY, panorama_id INTEGER, target_panorama_id INTEGER, yaw REAL, pitch REAL);",
+    "CREATE TABLE IF NOT EXISTS edge (id INTEGER PRIMARY KEY, from_point INTEGER, to_point INTEGER, weight REAL DEFAULT 1);",
+    "CREATE TABLE IF NOT EXISTS event_log (id INTEGER PRIMARY KEY, type TEXT, point_id INTEGER, panorama_id INTEGER, created_at TEXT DEFAULT CURRENT_TIMESTAMP);",
+    "CREATE TABLE IF NOT EXISTS user (id INTEGER PRIMARY KEY, email TEXT UNIQUE, password_hash TEXT, role TEXT DEFAULT 'organizer');"
+  ], "write");
 
   // Проверяем, есть ли данные. Если база пустая — добавляем тестовые.
   const result = await db.execute('SELECT COUNT(*) as c FROM campus');
