@@ -1,4 +1,4 @@
-import { MapContainer, ImageOverlay, Marker, Popup, Polyline, useMapEvents } from 'react-leaflet';
+import { MapContainer, ImageOverlay, Marker, Popup, Polyline } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -15,7 +15,9 @@ export default function MapView({ data, route, onPointClick, onRoute }) {
   return (
     <div style={{ height: 'calc(100vh - 110px)' }}>
       <MapContainer crs={L.CRS.Simple} bounds={[[0,0],[1000,1000]]} style={{ height: '100%' }} minZoom={-1}>
+        {/* Картинка берется из папки public/frontend */}
         <ImageOverlay url="/plan.svg" bounds={[[0,0],[1000,1000]]} />
+        
         {points.map(p => (
           <Marker key={p.id} position={[p.y, p.x]} icon={icon('#2563eb')}>
             <Popup>
@@ -28,6 +30,7 @@ export default function MapView({ data, route, onPointClick, onRoute }) {
             </Popup>
           </Marker>
         ))}
+        
         {routeCoords.length > 1 && <Polyline positions={routeCoords} color="#dc2626" weight={5} />}
       </MapContainer>
     </div>

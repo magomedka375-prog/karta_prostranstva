@@ -12,8 +12,7 @@ export default defineConfig({
         short_name: 'Карта',
         theme_color: '#2563eb',
         background_color: '#ffffff',
-        display: 'standalone', // Скрывает адресную строку браузера, как в приложении
-        icons: [{ src: 'pwa-192x192.png', sizes: '192x192', type: 'image/png' }]
+        display: 'standalone'
       }
     })
   ],

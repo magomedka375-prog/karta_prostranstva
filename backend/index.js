@@ -4,9 +4,8 @@ import fs from 'fs';
 import { db } from './db.js';
 
 const app = express();
-app.use(cors({
-  origin: 'https://kartaprostranstva-frontend.vercel.app'
-}));
+// Разрешаем CORS для всех адресов (для хакатона это нормально)
+app.use(cors());
 app.use(express.json());
 
 // Создание папки uploads (на Vercel просто пропустится)
